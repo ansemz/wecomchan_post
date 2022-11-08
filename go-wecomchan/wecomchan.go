@@ -45,16 +45,20 @@ const RedisTokenKey = "access_token"
 type Msg struct {
 	Content string `json:"content"`
 }
+type Markdown struct {
+	Content string `json:"content"`
+}
 type Pic struct {
 	MediaId string `json:"media_id"`
 }
 type JsonData struct {
-	ToUser                 string `json:"touser"`
-	AgentId                string `json:"agentid"`
-	MsgType                string `json:"msgtype"`
-	DuplicateCheckInterval int    `json:"duplicate_check_interval"`
-	Text                   Msg    `json:"text"`
-	Image                  Pic    `json:"image"`
+	ToUser                 string   `json:"touser"`
+	AgentId                string   `json:"agentid"`
+	MsgType                string   `json:"msgtype"`
+	DuplicateCheckInterval int      `json:"duplicate_check_interval"`
+	Text                   Msg      `json:"text"`
+	Image                  Pic      `json:"image"`
+	Markdown               Markdown `json:"markdown"`
 }
 
 // GetEnvDefault 获取配置信息，未获取到则取默认值
@@ -297,6 +301,10 @@ func main() {
 		if sendkey != Sendkey {
 			log.Panicln("sendkey 错误，请检查")
 		}
+
+		// 准备发送应用消息所需参数
+		postData := InitJsonData(msgType)
+
 		// 默认mediaId为空
 		mediaId := ""
 		if msgType == "image" {
@@ -313,15 +321,20 @@ func main() {
 
 				accessToken = GetAccessToken()
 			}
+			postData.Image = Pic{
+				MediaId: mediaId,
+			}
 		}
 
-		// 准备发送应用消息所需参数
-		postData := InitJsonData(msgType)
-		postData.Text = Msg{
-			Content: msgContent,
+		if msgType == "markdown" {
+			postData.Markdown = Markdown{
+				Content: msgContent,
+			}
 		}
-		postData.Image = Pic{
-			MediaId: mediaId,
+		if msgType == "text" {
+			postData.Text = Msg{
+				Content: msgContent,
+			}
 		}
 
 		postStatus := ""
