@@ -28,6 +28,8 @@ var WecomToUid = GetEnvDefault("WECOM_TOUID", "@all")
 var RedisStat = GetEnvDefault("REDIS_STAT", "OFF")
 var RedisAddr = GetEnvDefault("REDIS_ADDR", "localhost:6379")
 var RedisPassword = GetEnvDefault("REDIS_PASSWORD", "")
+var WecomToken = GetEnvDefault("WECOM_TOKEN", "企业微信回调Token")
+var WecomAesKey = GetEnvDefault("WECOM_AES_KEY", "企业微信回调AesKey")
 var ctx = context.Background()
 
 /*-------------------------------  环境变量配置 end  -------------------------------*/
@@ -356,6 +358,8 @@ func main() {
 		res.Header().Set("Content-type", "application/json")
 		_, _ = res.Write([]byte(postStatus))
 	}
+
 	http.HandleFunc("/wecomchan", wecomChan)
+	http.HandleFunc("/callback", WecomCallback)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
