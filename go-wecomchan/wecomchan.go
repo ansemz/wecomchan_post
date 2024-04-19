@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis/v8"
+	"io"
 	"io/ioutil"
 	"log"
 	"math"
@@ -275,32 +276,57 @@ func main() {
 		// 默认token有效
 		tokenValid := true
 
-		var msgContent string
-		var msgType string
-		var sendkey string
-		if req.Method == http.MethodGet {
-			msgContent = req.URL.Query().Get("msg")
-			msgType = req.URL.Query().Get("msg_type")
-			sendkey = req.URL.Query().Get("sendkey")
-			//GET参数解析
-		} else if req.Method == http.MethodPost {
-			//application/json 或者formData
+		var msgContent, msgType, sendkey string
+
+		// 首先检查 URL 查询参数，适用于 GET 和 POST
+		queryMsg := req.URL.Query().Get("msg")
+		queryMsgType := req.URL.Query().Get("msg_type")
+		querySendKey := req.URL.Query().Get("sendkey")
+
+		// 检查 POST 请求体
+		if req.Method == http.MethodPost {
 			if HasContentType(req, ContentTypeJSON) {
-				body, _ := ioutil.ReadAll(req.Body)
+				body, _ := io.ReadAll(req.Body)
 				jsonBody := ParseJson(string(body))
-				msgContent = jsonBody["msg"].(string)
-				msgType = jsonBody["msg_type"].(string)
-				sendkey = jsonBody["sendkey"].(string)
-			}
-			if HasContentType(req, ContentTypeFormData) {
-				_ = req.ParseMultipartForm(100 * 1024 * 1024 * 8)
-				msgContent = req.FormValue("msg")
-				msgType = req.FormValue("msg_type")
-				sendkey = req.FormValue("sendkey")
+				if msg, ok := jsonBody["msg"].(string); ok && msg != "" {
+					msgContent = msg
+				}
+				if jsonMsgType, ok := jsonBody["msg_type"].(string); ok && jsonMsgType != "" {
+					msgType = jsonMsgType
+				}
+				if jsonSendkey, ok := jsonBody["sendkey"].(string); ok && jsonSendkey != "" {
+					sendkey = jsonSendkey
+				}
+			} else if HasContentType(req, ContentTypeFormData) {
+				err := req.ParseMultipartForm(100 * 1024 * 1024 * 8)
+				if err != nil {
+					http.Error(res, "Failed to parse form data", http.StatusBadRequest)
+					return
+				}
+				if formMsg := req.FormValue("msg"); formMsg != "" {
+					msgContent = formMsg
+				}
+				if formMsgType := req.FormValue("msg_type"); formMsgType != "" {
+					msgType = formMsgType
+				}
+				if formSendkey := req.FormValue("sendkey"); formSendkey != "" {
+					sendkey = formSendkey
+				}
 			}
 		}
 
-		if sendkey != Sendkey {
+		// 如果 msgContent 在 POST 数据中未被设置，检查 GET 查询参数
+		if msgContent == "" {
+			msgContent = queryMsg
+		}
+		if sendkey == "" {
+			sendkey = querySendKey
+		}
+		if msgType == "" {
+			msgType = queryMsgType
+		}
+
+		if sendkey == Sendkey {
 			log.Panicln("sendkey 错误，请检查")
 		}
 
@@ -361,5 +387,5 @@ func main() {
 
 	http.HandleFunc("/wecomchan", wecomChan)
 	http.HandleFunc("/callback", WecomCallback)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":18080", nil))
 }
