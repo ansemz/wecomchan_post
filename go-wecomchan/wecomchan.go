@@ -276,7 +276,7 @@ func main() {
 
 		// 从 Header 获取 sendkey 和 msg_type，作为最后的后备选项
 		headerSendKey := req.Header.Get("sendkey")
-		headerMsgType := req.Header.Get("msg_type")
+		headerMsgType := req.Header.Get("msgtype")
 
 		// 首先检查 URL 查询参数，适用于 GET 和 POST
 		queryMsg := req.URL.Query().Get("msg")
