@@ -271,12 +271,12 @@ func main() {
 	// 设置日志内容显示文件名和行号
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	wecomChan := func(res http.ResponseWriter, req *http.Request) {
-		// 获取token
-		accessToken := GetAccessToken()
-		// 默认token有效
-		tokenValid := true
 
 		var msgContent, msgType, sendkey string
+
+		// 从 Header 获取 sendkey 和 msg_type，作为最后的后备选项
+		headerSendKey := req.Header.Get("sendkey")
+		headerMsgType := req.Header.Get("msg_type")
 
 		// 首先检查 URL 查询参数，适用于 GET 和 POST
 		queryMsg := req.URL.Query().Get("msg")
@@ -286,8 +286,16 @@ func main() {
 		// 检查 POST 请求体
 		if req.Method == http.MethodPost {
 			if HasContentType(req, ContentTypeJSON) {
-				body, _ := io.ReadAll(req.Body)
+				body, err := io.ReadAll(req.Body)
+				if err != nil {
+					http.Error(res, "Failed to read request body", http.StatusBadRequest)
+					return
+				}
 				jsonBody := ParseJson(string(body))
+				if err != nil {
+					http.Error(res, "Failed to parse JSON", http.StatusBadRequest)
+					return
+				}
 				if msg, ok := jsonBody["msg"].(string); ok && msg != "" {
 					msgContent = msg
 				}
@@ -319,19 +327,33 @@ func main() {
 		if msgContent == "" {
 			msgContent = queryMsg
 		}
-		if sendkey == "" {
-			sendkey = querySendKey
-		}
 		if msgType == "" {
 			msgType = queryMsgType
 		}
+		if sendkey == "" {
+			sendkey = querySendKey
+		}
 
-		if sendkey == Sendkey {
-			log.Panicln("sendkey 错误，请检查")
+		// 最后检查 Header，如果以上都没有设置
+		if sendkey == "" {
+			sendkey = headerSendKey
+		}
+		if msgType == "" {
+			msgType = headerMsgType
+		}
+
+		// 验证 sendkey 是否存在
+		if sendkey == "" {
+			http.Error(res, "{\"errcode\":0,\"errmsg\":\"sendkey is required\"}", http.StatusBadRequest)
 		}
 
 		// 准备发送应用消息所需参数
 		postData := InitJsonData(msgType)
+
+		// 获取token
+		accessToken := GetAccessToken()
+		// 默认token有效
+		tokenValid := true
 
 		// 默认mediaId为空
 		mediaId := ""
@@ -387,5 +409,8 @@ func main() {
 
 	http.HandleFunc("/wecomchan", wecomChan)
 	http.HandleFunc("/callback", WecomCallback)
+	http.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
+		_, _ = res.Write([]byte("Wecomchan is running"))
+	})
 	log.Fatal(http.ListenAndServe(":18080", nil))
 }
