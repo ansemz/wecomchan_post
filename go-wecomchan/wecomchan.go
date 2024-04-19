@@ -412,5 +412,5 @@ func main() {
 	http.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
 		_, _ = res.Write([]byte("Wecomchan is running"))
 	})
-	log.Fatal(http.ListenAndServe(":18080", nil))
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
